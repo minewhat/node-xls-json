@@ -1,4 +1,3 @@
-var fs = require('fs');
 var xlsjs = require('xlsjs');
 var cvcsv = require('csv');
 
@@ -6,13 +5,12 @@ exports = module.exports = XLS_json;
 
 // exports.XLS_json = XLS_json;
 
-function XLS_json (config, callback) {
+function XLS_json (config, callback,finalcallback) {
   if(!config.input) {
     console.error("You miss a input file");
-    process.exit(1);
   }
 
-  var cv = new CV(config, callback);
+  var cv = new CV(config, callback,finalcallback);
   
 }
 
@@ -20,7 +18,7 @@ function CV(config, callback) {
   var wb = this.load_xls(config.input)
   var ws = this.ws(wb);
   var csv = this.csv(ws)
-  this.cvjson(csv, config.output, callback)
+  this.cvjson(csv, config.records, callback,finalcallback)
 }
 
 CV.prototype.load_xls = function(input) {
@@ -40,7 +38,7 @@ CV.prototype.csv = function(ws) {
   return csv_file = xlsjs.utils.make_csv(ws)
 }
 
-CV.prototype.cvjson = function(csv, output, callback) {
+CV.prototype.cvjson = function(csv, records , callback,finalcallback) {
   var record = []
   var header = []
 
@@ -61,20 +59,23 @@ CV.prototype.cvjson = function(csv, output, callback) {
         })
         record.push(obj);
       }
+      if( (index % records) == 0 )
+      {
+         callback(null,record);
+         record = []
+      }
     })
     .on('end', function(count){
       // when writing to a file, use the 'close' event
       // the 'end' event may fire before the file has been written
-      if(output !== null) {
-      	var stream = fs.createWriteStream(output, { flags : 'w' });
-      	stream.write(JSON.stringify(record));
-      	callback(null, record);
-      } else {
-      	callback(null, record);
-      }
+      callback(null, record);
+      if(finalcallback)
+        finalcallback(null);
       
     })
     .on('error', function(error){
       console.log(error.message);
+      if(finalcallback)
+        finalcallback(error.message);
     });
 }
